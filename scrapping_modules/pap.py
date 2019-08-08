@@ -38,33 +38,36 @@ def search(parameters):
     request = requests.get("https://ws.pap.fr/immobilier/annonces", params=unquote(params), headers=header)
     data = request.json()
 
-    for ad in data['_embedded']['annonce']:
-        _request = requests.get("https://ws.pap.fr/immobilier/annonces/%s" % ad['id'], headers=header)
-        _data = _request.json()
+    if 'annonce' in data['_embedded']:
+        for ad in data['_embedded']['annonce']:
+            _request = requests.get("https://ws.pap.fr/immobilier/annonces/%s" % ad['id'], headers=header)
+            _data = _request.json()
 
-        photos = list()
-        if _data.get("nb_photos") > 0:
-            for photo in _data["_embedded"]['photo']:
-                photos.append(photo['_links']['self']['href'])
+            photos = list()
+            if _data.get("nb_photos") > 0:
+                for photo in _data["_embedded"]['photo']:
+                    photos.append(photo['_links']['self']['href'])
 
-        annonce, created = Annonce.create_or_get(
-            id='pap-%s' % _data.get('id'),
-            site="PAP",
-            title="%s %s pièces" % (_data.get("typebien"), _data.get("nb_pieces")),
-            description=str(_data.get("texte")),
-            telephone=_data.get("telephones")[0].replace('.', '') if len(_data.get("telephones")) > 0 else None,
-            created=datetime.fromtimestamp(_data.get("date_classement")),
-            price=_data.get('prix'),
-            surface=_data.get('surface'),
-            rooms=_data.get('nb_pieces'),
-            bedrooms=_data.get('nb_chambres_max'),
-            city=_data["_embedded"]['place'][0]['title'],
-            link=_data["_links"]['desktop']['href'],
-            picture=photos
-        )
+            annonce, created = Annonce.get_or_create(
+                id = 'pap-%s' % _data.get('id'),
+                site = "PAP",
+                defaults = {
+                    'title': "%s %s pièces" % (_data.get("typebien"), _data.get("nb_pieces")),
+                    'description': str(_data.get("texte")),
+                    'telephone': _data.get("telephones")[0].replace('.', '') if len(_data.get("telephones")) > 0 else None,
+                    'created': datetime.fromtimestamp(_data.get("date_classement")),
+                    'price': _data.get('prix'),
+                    'surface': _data.get('surface'),
+                    'rooms': _data.get('nb_pieces'),
+                    'bedrooms': _data.get('nb_chambres_max'),
+                    'city': _data["_embedded"]['place'][0]['title'],
+                    'link': _data["_links"]['desktop']['href'],
+                    'picture': photos
+                }
+            )
 
-        if created:
-            annonce.save()
+            if created:
+                annonce.save()
 
 
 def place_search(zipcode):
