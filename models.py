@@ -5,6 +5,12 @@ db = SqliteExtDatabase('database.sqlite')
 
 
 class Annonce(Model):
+
+    # import logging
+    # logger = logging.getLogger('peewee')
+    # logger.addHandler(logging.StreamHandler())
+    # logger.setLevel(logging.DEBUG)
+
     # id = "pap-123456789"
     id = CharField(unique=True, primary_key=True)
     # site = [pap, lbc, logic-immo, seloger]
@@ -20,7 +26,7 @@ class Annonce(Model):
     bedrooms = IntegerField(null=True)
     city = CharField()
     link = CharField()
-    picture = CharField(null=True)
+    picture = TextField(null=True)
     posted2trello = BooleanField(default=False)
 
     class Meta:
