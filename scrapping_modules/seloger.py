@@ -23,36 +23,48 @@ def search(parameters):
 
     headers = {'user-agent': 'Dalvik/2.1.0 (Linux; U; Android 6.0.1; D5803 Build/MOB30M.Z1)'}
 
-    request = requests.get("http://ws.seloger.com/search_4.0.xml", params=payload, headers=headers)
+    request = requests.get("http://ws-seloger.svc.groupe-seloger.com/search_4.0.xml", params=payload, headers=headers)
 
     xml_root = ET.fromstring(request.text)
 
     for annonceNode in xml_root.findall('annonces/annonce'):
         # Seconde requête pour obtenir la description de l'annonce
-        _payload = {'noAudiotel': 1, 'idAnnonce': annonceNode.findtext('idAnnonce')}
-        _request = requests.get("http://ws.seloger.com/annonceDetail_4.0.xml", params=_payload, headers=headers)
+        # TODO: seulement si id absent de la base (limite les requetes api)
 
-        photos = list()
-        for photo in annonceNode.find("photos"):
-            photos.append(photo.findtext("stdUrl"))
+        try:
+            annonce = Annonce.get(
+                id = 'seloger-' + annonceNode.find('idAnnonce').text
+            )
 
-        annonce, created = Annonce.create_or_get(
-            id='seloger-' + annonceNode.find('idAnnonce').text,
-            site='SeLoger',
-            # SeLoger peut ne pas fournir de titre pour une annonce T_T
-            title="Appartement " + annonceNode.findtext('nbPiece') + " pièces" if annonceNode.findtext('titre') is None else annonceNode.findtext('titre'),
-            description=ET.fromstring(_request.text).findtext("descriptif"),
-            telephone=ET.fromstring(_request.text).findtext("contact/telephone"),
-            created=datetime.strptime(annonceNode.findtext('dtCreation'), '%Y-%m-%dT%H:%M:%S'),
-            price=annonceNode.find('prix').text,
-            charges=annonceNode.find('charges').text,
-            surface=annonceNode.find('surface').text,
-            rooms=annonceNode.find('nbPiece').text,
-            bedrooms=annonceNode.find('nbChambre').text,
-            city=annonceNode.findtext('ville'),
-            link=annonceNode.findtext('permaLien'),
-            picture=photos
-        )
+        except:
+            _payload = {'noAudiotel': 1, 'idAnnonce': annonceNode.findtext('idAnnonce')}
+            _request = requests.get("http://ws-seloger.svc.groupe-seloger.com/annonceDetail_4.0.xml", params=_payload, headers=headers)
 
-        if created:
-            annonce.save()
+            photos = list()
+            for photo in annonceNode.find("photos"):
+                photos.append(photo.findtext("stdUrl"))
+                # Une seule photo, la première
+                # break
+
+            annonce, created = Annonce.get_or_create(
+                id = 'seloger-' + annonceNode.find('idAnnonce').text,
+                site = 'SeLoger',
+                defaults = {
+                    # SeLoger peut ne pas fournir de titre pour une annonce T_T
+                    'title': "Appartement " + annonceNode.findtext('nbPiece') + " pièces" if annonceNode.findtext('titre') is None else annonceNode.findtext('titre'),
+                    'description': ET.fromstring(_request.text).findtext("descriptif"),
+                    'telephone': ET.fromstring(_request.text).findtext("contact/telephone"),
+                    'created': datetime.strptime(annonceNode.findtext('dtCreation'), '%Y-%m-%dT%H:%M:%S'),
+                    'price': annonceNode.find('prix').text,
+                    'charges': annonceNode.find('charges').text,
+                    'surface': annonceNode.find('surface').text,
+                    'rooms': annonceNode.find('nbPiece').text,
+                    'bedrooms': annonceNode.find('nbChambre').text,
+                    'city': annonceNode.findtext('ville'),
+                    'link': annonceNode.findtext('permaLien'),
+                    'picture': photos
+                }
+            )
+
+            if created:
+                annonce.save()
